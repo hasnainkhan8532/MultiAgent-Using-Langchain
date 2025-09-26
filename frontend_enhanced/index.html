@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiToolAPI - Enhanced Client Dashboard</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-hover { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .loading-spinner { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .chat-message { max-width: 80%; margin-bottom: 1rem; }
+        .user-message { background: #3b82f6; color: white; margin-left: auto; }
+        .bot-message { background: #f3f4f6; color: #374151; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const API_BASE = 'http://localhost:8000';
+
+        function App() {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [selectedClient, setSelectedClient] = useState(null);
+            const [clients, setClients] = useState([]);
+            const [dashboardData, setDashboardData] = useState(null);
+            const [loading, setLoading] = useState(false);
+
+            useEffect(() => {
+                loadClients();
+                loadDashboard();
+                
+                // Listen for client navigation events
+                const handleNavigateToClient = (event) => {
+                    setSelectedClient(event.detail);
+                    setActiveTab('client-detail');
+                };
+                
+                window.addEventListener('navigateToClient', handleNavigateToClient);
+                return () => window.removeEventListener('navigateToClient', handleNavigateToClient);
+            }, []);
+
+            const loadClients = async () => {
+                try {
+                    const response = await axios.get(`${API_BASE}/clients/`);
+                    setClients(response.data);
+                } catch (error) {
+                    console.error('Error loading clients:', error);
+                }
+            };
+
+            const loadDashboard = async () => {
+                try {
+                    const response = await axios.get(`${API_BASE}/dashboard`);
+                    setDashboardData(response.data);
+                } catch (error) {
+                    console.error('Error loading dashboard:', error);
+                }
+            };
+
+            const handleClientSelect = (client) => {
+                setSelectedClient(client);
+                setActiveTab('client-detail');
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Header />
+                    <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <main className="container mx-auto px-6 py-8">
+                        {activeTab === 'dashboard' && <Dashboard data={dashboardData} clients={clients} onClientSelect={handleClientSelect} />}
+                        {activeTab === 'clients' && <Clients clients={clients} onClientsChange={loadClients} onClientSelect={handleClientSelect} />}
+                        {activeTab === 'client-detail' && selectedClient && <ClientDetail client={selectedClient} onBack={() => setActiveTab('clients')} onToolSelect={setActiveTab} />}
+                        {activeTab === 'scraper' && selectedClient && <WebScraper client={selectedClient} onBack={() => setActiveTab('client-detail')} />}
+                        {activeTab === 'rag' && selectedClient && <RAGSystem client={selectedClient} onBack={() => setActiveTab('client-detail')} />}
+                        {activeTab === 'maps' && selectedClient && <MapsIntegration client={selectedClient} onBack={() => setActiveTab('client-detail')} />}
+                        {activeTab === 'chatbot' && selectedClient && <Chatbot client={selectedClient} onBack={() => setActiveTab('client-detail')} />}
+                    </main>
+                </div>
+            );
+        }
+
+        function Header() {
+            return (
+                <header className="gradient-bg text-white shadow-lg">
+                    <div className="container mx-auto px-6 py-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <i className="fas fa-tools text-3xl"></i>
+                                <h1 className="text-2xl font-bold">MultiToolAPI - Enhanced</h1>
+                            </div>
+                            <div className="text-sm">
+                                <i className="fas fa-database mr-2"></i>
+                                Client-Centric Intelligence System
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            );
+        }
+
+        function Navigation({ activeTab, setActiveTab }) {
+            const [selectedClient, setSelectedClient] = useState(null);
+            
+            useEffect(() => {
+                const handleNavigateToClient = (event) => {
+                    setSelectedClient(event.detail);
+                };
+                
+                window.addEventListener('navigateToClient', handleNavigateToClient);
+                return () => window.removeEventListener('navigateToClient', handleNavigateToClient);
+            }, []);
+            
+            const tabs = [
+                { id: 'dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+                { id: 'clients', label: 'Clients', icon: 'fas fa-users' },
+                { id: 'client-detail', label: selectedClient ? `${selectedClient.name}` : 'Client Detail', icon: 'fas fa-user', disabled: !selectedClient },
+                { id: 'scraper', label: 'Web Scraper', icon: 'fas fa-globe', disabled: !selectedClient },
+                { id: 'rag', label: 'RAG System', icon: 'fas fa-brain', disabled: !selectedClient },
+                { id: 'maps', label: 'Maps API', icon: 'fas fa-map-marker-alt', disabled: !selectedClient },
+                { id: 'chatbot', label: 'AI Chatbot', icon: 'fas fa-comments', disabled: !selectedClient }
+            ];
+
+            return (
+                <nav className="bg-white shadow-sm border-b">
+                    <div className="container mx-auto px-6">
+                        <div className="flex space-x-8">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                                    className={`py-4 px-2 border-b-2 font-medium text-sm ${
+                                        activeTab === tab.id
+                                            ? 'border-blue-500 text-blue-600'
+                                            : tab.disabled
+                                            ? 'border-transparent text-gray-400 cursor-not-allowed'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                                >
+                                    <i className={`${tab.icon} mr-2`}></i>
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </nav>
+            );
+        }
+
+        function Dashboard({ data, clients, onClientSelect }) {
+            if (!data) return <div className="text-center py-8">Loading dashboard...</div>;
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-3xl font-bold text-gray-900">Client Intelligence Dashboard</h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="bg-white rounded-lg shadow p-6 card-hover">
+                            <div className="flex items-center">
+                                <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                                    <i className="fas fa-users text-xl"></i>
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Total Clients</p>
+                                    <p className="text-2xl font-semibold text-gray-900">{data.total_clients}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow p-6 card-hover">
+                            <div className="flex items-center">
+                                <div className="p-3 rounded-full bg-green-100 text-green-600">
+                                    <i className="fas fa-globe text-xl"></i>
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Scraped Sites</p>
+                                    <p className="text-2xl font-semibold text-gray-900">{data.total_scraped_sites}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow p-6 card-hover">
+                            <div className="flex items-center">
+                                <div className="p-3 rounded-full bg-purple-100 text-purple-600">
+                                    <i className="fas fa-brain text-xl"></i>
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Knowledge Docs</p>
+                                    <p className="text-2xl font-semibold text-gray-900">{data.total_documents}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow p-6 card-hover">
+                            <div className="flex items-center">
+                                <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                                    <i className="fas fa-map-marker-alt text-xl"></i>
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Places Found</p>
+                                    <p className="text-2xl font-semibold text-gray-900">{data.total_places}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white rounded-lg shadow">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <h3 className="text-lg font-medium text-gray-900">Recent Activity</h3>
+                            </div>
+                            <div className="p-6">
+                                {data.recent_activity.length === 0 ? (
+                                    <p className="text-gray-500 text-center py-4">No recent activity</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {data.recent_activity.map((activity, index) => (
+                                            <div key={index} className="flex items-center space-x-3">
+                                                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                                    <i className="fas fa-globe text-green-600"></i>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">{activity.client}</p>
+                                                    <p className="text-sm text-gray-500">{activity.action}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
+                            </div>
+                            <div className="p-6 space-y-3">
+                                <button 
+                                    onClick={() => onClientSelect(clients[0])}
+                                    className="w-full text-left p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                                >
+                                    <i className="fas fa-user mr-2 text-blue-600"></i>
+                                    Select Client for Analysis
+                                </button>
+                                <button 
+                                    onClick={() => window.open('http://localhost:8000/docs', '_blank')}
+                                    className="w-full text-left p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                                >
+                                    <i className="fas fa-book mr-2 text-green-600"></i>
+                                    View API Documentation
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Clients({ clients, onClientsChange, onClientSelect }) {
+            const [showForm, setShowForm] = useState(false);
+            const [formData, setFormData] = useState({
+                name: '', email: '', company: '', website: '', industry: '', description: '', location: ''
+            });
+            const [loading, setLoading] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                try {
+                    await axios.post(`${API_BASE}/clients/`, formData);
+                    setFormData({ name: '', email: '', company: '', website: '', industry: '', description: '', location: '' });
+                    setShowForm(false);
+                    onClientsChange();
+                } catch (error) {
+                    alert('Error creating client: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleClientSelect = (client) => {
+                onClientSelect(client);
+                // Navigate to client detail automatically
+                window.dispatchEvent(new CustomEvent('navigateToClient', { detail: client }));
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-3xl font-bold text-gray-900">Client Management</h2>
+                        <button
+                            onClick={() => setShowForm(true)}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            <i className="fas fa-plus mr-2"></i>Add Client
+                        </button>
+                    </div>
+
+                    {showForm && (
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Client</h3>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Name *</label>
+                                        <input type="text" required value={formData.name}
+                                            onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Email *</label>
+                                        <input type="email" required value={formData.email}
+                                            onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Company</label>
+                                        <input type="text" value={formData.company}
+                                            onChange={(e) => setFormData({...formData, company: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Website</label>
+                                        <input type="url" value={formData.website}
+                                            onChange={(e) => setFormData({...formData, website: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Industry</label>
+                                        <input type="text" value={formData.industry}
+                                            onChange={(e) => setFormData({...formData, industry: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Location</label>
+                                        <input type="text" value={formData.location}
+                                            onChange={(e) => setFormData({...formData, location: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Description</label>
+                                    <textarea value={formData.description} rows={3}
+                                        onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                                </div>
+                                <div className="flex justify-end space-x-3">
+                                    <button type="button" onClick={() => setShowForm(false)}
+                                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                                        Cancel
+                                    </button>
+                                    <button type="submit" disabled={loading}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+                                        {loading ? 'Creating...' : 'Create Client'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-medium text-gray-900">All Clients</h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Industry</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {clients.map(client => (
+                                        <tr key={client.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                {client.name}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {client.company || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {client.industry || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <button
+                                                    onClick={() => handleClientSelect(client)}
+                                                    className="text-blue-600 hover:text-blue-800 mr-3"
+                                                >
+                                                    <i className="fas fa-eye mr-1"></i>View
+                                                </button>
+                                                <button
+                                                    onClick={() => handleClientSelect(client)}
+                                                    className="text-green-600 hover:text-green-800"
+                                                >
+                                                    <i className="fas fa-cog mr-1"></i>Configure
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function ClientDetail({ client, onBack, onToolSelect }) {
+            return (
+                <div className="space-y-6">
+                    <div className="flex items-center space-x-4">
+                        <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
+                            <i className="fas fa-arrow-left text-xl"></i>
+                        </button>
+                        <h2 className="text-3xl font-bold text-gray-900">{client.name} - Client Configuration</h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-1">
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">Client Information</h3>
+                                <div className="space-y-3">
+                                    <div>
+                                        <span className="text-sm font-medium text-gray-600">Company:</span>
+                                        <p className="text-sm text-gray-900">{client.company || 'Not provided'}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-medium text-gray-600">Industry:</span>
+                                        <p className="text-sm text-gray-900">{client.industry || 'Not provided'}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-medium text-gray-600">Website:</span>
+                                        <p className="text-sm text-gray-900">
+                                            {client.website ? (
+                                                <a href={client.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                                                    {client.website}
+                                                </a>
+                                            ) : 'Not provided'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-medium text-gray-600">Location:</span>
+                                        <p className="text-sm text-gray-900">{client.location || 'Not provided'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <button 
+                                    onClick={() => onToolSelect('scraper')}
+                                    className="bg-white rounded-lg shadow p-6 card-hover cursor-pointer hover:shadow-lg transition-shadow text-left"
+                                >
+                                    <div className="text-center">
+                                        <i className="fas fa-globe text-4xl text-green-600 mb-4"></i>
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">Web Scraper</h3>
+                                        <p className="text-sm text-gray-600">Scrape client websites for data collection</p>
+                                    </div>
+                                </button>
+
+                                <button 
+                                    onClick={() => onToolSelect('rag')}
+                                    className="bg-white rounded-lg shadow p-6 card-hover cursor-pointer hover:shadow-lg transition-shadow text-left"
+                                >
+                                    <div className="text-center">
+                                        <i className="fas fa-brain text-4xl text-purple-600 mb-4"></i>
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">RAG System</h3>
+                                        <p className="text-sm text-gray-600">Knowledge base and document management</p>
+                                    </div>
+                                </button>
+
+                                <button 
+                                    onClick={() => onToolSelect('maps')}
+                                    className="bg-white rounded-lg shadow p-6 card-hover cursor-pointer hover:shadow-lg transition-shadow text-left"
+                                >
+                                    <div className="text-center">
+                                        <i className="fas fa-map-marker-alt text-4xl text-yellow-600 mb-4"></i>
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">Maps Integration</h3>
+                                        <p className="text-sm text-gray-600">Location data and place information</p>
+                                    </div>
+                                </button>
+
+                                <button 
+                                    onClick={() => onToolSelect('chatbot')}
+                                    className="bg-white rounded-lg shadow p-6 card-hover cursor-pointer hover:shadow-lg transition-shadow text-left"
+                                >
+                                    <div className="text-center">
+                                        <i className="fas fa-comments text-4xl text-blue-600 mb-4"></i>
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">AI Chatbot</h3>
+                                        <p className="text-sm text-gray-600">Intelligent analysis and insights</p>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Tool components
+        function WebScraper({ client, onBack }) {
+            const { useState, useEffect } = React;
+            const [url, setUrl] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const [items, setItems] = useState([]);
+            // Crawl options
+            const [startUrl, setStartUrl] = useState('');
+            const [maxPages, setMaxPages] = useState(10);
+            const [maxDepth, setMaxDepth] = useState(2);
+            const [sameDomainOnly, setSameDomainOnly] = useState(true);
+            const [delay, setDelay] = useState(0.5);
+            const [crawling, setCrawling] = useState(false);
+            const [crawlResult, setCrawlResult] = useState(null);
+
+            const loadItems = async () => {
+                try {
+                    const resp = await axios.get(`${API_BASE}/clients/${client.id}/scraped-data`);
+                    setItems(resp.data.scraped_data || []);
+                } catch (e) {
+                    setError(e?.response?.data?.detail || e.message || 'Failed to load scraped data');
+                }
+            };
+
+            useEffect(() => {
+                setError('');
+                loadItems();
+            }, [client?.id]);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!url) return;
+                setLoading(true);
+                setError('');
+                try {
+                    await axios.post(`${API_BASE}/scraping/scrape`, {
+                        client_id: client.id,
+                        url: url,
+                        strategy: 'requests'
+                    });
+                    setUrl('');
+                    await loadItems();
+                } catch (e) {
+                    setError(e?.response?.data?.detail || e.message || 'Scraping failed');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleCrawl = async (e) => {
+                e.preventDefault();
+                if (!startUrl) {
+                    setError('Please enter a start URL');
+                    return;
+                }
+                setCrawling(true);
+                setCrawlResult(null);
+                setError('');
+                try {
+                    const resp = await axios.post(`${API_BASE}/scraping/crawl`, {
+                        client_id: client.id,
+                        start_url: startUrl,
+                        max_pages: Number(maxPages),
+                        max_depth: Number(maxDepth),
+                        same_domain_only: Boolean(sameDomainOnly),
+                        delay: Number(delay)
+                    });
+                    setCrawlResult(resp.data);
+                    await loadItems();
+                } catch (e) {
+                    setError(e?.response?.data?.detail || e.message || 'Crawl failed');
+                } finally {
+                    setCrawling(false);
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex items-center space-x-4">
+                        <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
+                            <i className="fas fa-arrow-left text-xl"></i>
+                        </button>
+                        <h2 className="text-3xl font-bold text-gray-900">Web Scraper - {client.name}</h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Single page scrape */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Scrape a single page</h3>
+                            <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4">
+                                <input
+                                    type="url"
+                                    value={url}
+                                    onChange={(e) => setUrl(e.target.value)}
+                                    placeholder="Enter page URL (e.g., https://example.com/about)"
+                                    className="flex-1 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                                    required
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                                >
+                                    {loading ? (
+                                        <div className="flex items-center">
+                                            <div className="loading-spinner mr-2"></div>
+                                            Scraping...
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <i className="fas fa-spider mr-2"></i>
+                                            Scrape
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* Crawl site */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Crawl site (multiple pages)</h3>
+                            <form onSubmit={handleCrawl} className="space-y-4">
+                                <input
+                                    type="url"
+                                    value={startUrl}
+                                    onChange={(e) => setStartUrl(e.target.value)}
+                                    placeholder="Start URL (e.g., https://example.com)"
+                                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                                    required
+                                />
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Max pages</label>
+                                        <input type="number" min="1" max="200" value={maxPages}
+                                            onChange={(e) => setMaxPages(e.target.value)}
+                                            className="mt-1 w-full border-gray-300 rounded-md shadow-sm px-3 py-2" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Max depth</label>
+                                        <input type="number" min="0" max="10" value={maxDepth}
+                                            onChange={(e) => setMaxDepth(e.target.value)}
+                                            className="mt-1 w-full border-gray-300 rounded-md shadow-sm px-3 py-2" />
+                                    </div>
+                                    <div className="flex items-center space-x-2 mt-7">
+                                        <input id="sameDomain" type="checkbox" checked={sameDomainOnly}
+                                            onChange={(e) => setSameDomainOnly(e.target.checked)} />
+                                        <label htmlFor="sameDomain" className="text-sm text-gray-700">Same domain only</label>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Delay (s)</label>
+                                        <input type="number" step="0.1" min="0" value={delay}
+                                            onChange={(e) => setDelay(e.target.value)}
+                                            className="mt-1 w-full border-gray-300 rounded-md shadow-sm px-3 py-2" />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end">
+                                    <button type="submit" disabled={crawling}
+                                        className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">
+                                        {crawling ? 'Crawling...' : 'Start Crawl'}
+                                    </button>
+                                </div>
+                                {crawlResult && (
+                                    <div className="mt-3 text-sm text-gray-700">
+                                        Saved pages: {crawlResult.pages_saved} • Errors: {crawlResult.errors} • Visited: {crawlResult.visited}
+                                    </div>
+                                )}
+                                {error && (
+                                    <div className="mt-2 p-3 rounded bg-red-50 text-red-700 text-sm">
+                                        <i className="fas fa-triangle-exclamation mr-2"></i>
+                                        {error}
+                                    </div>
+                                )}
+                            </form>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow">
+                        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                            <h3 className="text-lg font-medium text-gray-900">Scraped Data ({items.length})</h3>
+                            <span className="text-sm text-gray-500">Client: {client.company || client.name}</span>
+                        </div>
+                        <div className="p-6">
+                            {items.length === 0 ? (
+                                <p className="text-gray-500 text-center py-8">No scraped data yet. Start by scraping or crawling above.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {items.map((data) => (
+                                        <div key={data.id} className="border border-gray-200 rounded-lg p-4">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="text-lg font-medium text-gray-900 truncate">
+                                                        {data.title || 'Untitled Page'}
+                                                    </h4>
+                                                    <p className="text-sm text-gray-600 truncate">
+                                                        <a href={data.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                                                            {data.url}
+                                                        </a>
+                                                    </p>
+                                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm mt-3">
+                                                        <div>
+                                                            <span className="font-medium text-gray-600">Headings:</span>
+                                                            <span className="ml-2 text-gray-900">{data.headings?.length || 0}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium text-gray-600">Links:</span>
+                                                            <span className="ml-2 text-gray-900">{data.links?.length || 0}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium text-gray-600">Images:</span>
+                                                            <span className="ml-2 text-gray-900">{data.images?.length || 0}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium text-gray-600">Scraped:</span>
+                                                            <span className="ml-2 text-gray-900">{new Date(data.scraped_at).toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function RAGSystem({ client, onBack }) {
+            const { useState, useEffect } = React;
+            const [title, setTitle] = useState('');
+            const [content, setContent] = useState('');
+            const [documentType, setDocumentType] = useState('general');
+            const [source, setSource] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const [docs, setDocs] = useState([]);
+            const [file, setFile] = useState(null);
+            const [uploading, setUploading] = useState(false);
+
+            const loadDocs = async () => {
+                try {
+                    const resp = await axios.get(`${API_BASE}/clients/${client.id}/rag-documents`);
+                    setDocs(resp.data.documents || []);
+                } catch (e) {
+                    setError(e?.response?.data?.detail || e.message || 'Failed to load documents');
+                }
+            };
+
+            useEffect(() => {
+                setError('');
+                loadDocs();
+            }, [client?.id]);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!title || !content) {
+                    setError('Title and content are required');
+                    return;
+                }
+                setLoading(true);
+                setError('');
+                try {
+                    await axios.post(`${API_BASE}/rag/add-document`, {
+                        client_id: client.id,
+                        title,
+                        content,
+                        document_type: documentType,
+                        source: source || null
+                    });
+                    setTitle('');
+                    setContent('');
+                    setDocumentType('general');
+                    setSource('');
+                    await loadDocs();
+                } catch (e) {
+                    setError(e?.response?.data?.detail || e.message || 'Failed to add document');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleUpload = async (e) => {
+                e.preventDefault();
+                if (!file) {
+                    setError('Please choose a file');
+                    return;
+                }
+                setUploading(true);
+                setError('');
+                try {
+                    const form = new FormData();
+                    form.append('client_id', client.id);
+                    form.append('document_type', documentType);
+                    if (source) form.append('source', source);
+                    form.append('file', file);
+                    await axios.post(`${API_BASE}/rag/upload`, form, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    setFile(null);
+                    await loadDocs();
+                } catch (e) {
+                    setError(e?.response?.data?.detail || e.message || 'Upload failed');
+                } finally {
+                    setUploading(false);
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex items-center space-x-4">
+                        <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
+                            <i className="fas fa-arrow-left text-xl"></i>
+                        </button>
+                        <h2 className="text-3xl font-bold text-gray-900">RAG System - {client.name}</h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Add Document (manual) */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Add Knowledge Document</h3>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Title *</label>
+                                        <input
+                                            type="text"
+                                            value={title}
+                                            onChange={(e) => setTitle(e.target.value)}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Document Type</label>
+                                        <select
+                                            value={documentType}
+                                            onChange={(e) => setDocumentType(e.target.value)}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                                        >
+                                            <option value="general">General</option>
+                                            <option value="notes">Notes</option>
+                                            <option value="requirements">Requirements</option>
+                                            <option value="faq">FAQ</option>
+                                            <option value="policy">Policy</option>
+                                        </select>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700">Source (optional)</label>
+                                        <input
+                                            type="text"
+                                            value={source}
+                                            onChange={(e) => setSource(e.target.value)}
+                                            placeholder="e.g., uploaded.pdf, manual, URL"
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700">Content *</label>
+                                        <textarea
+                                            rows="6"
+                                            value={content}
+                                            onChange={(e) => setContent(e.target.value)}
+                                            placeholder="Paste or type the document content..."
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                {error && (
+                                    <div className="p-3 rounded bg-red-50 text-red-700 text-sm">
+                                        <i className="fas fa-triangle-exclamation mr-2"></i>
+                                        {error}
+                                    </div>
+                                )}
+                                <div className="flex justify-end">
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+                                    >
+                                        {loading ? 'Adding...' : 'Add Document'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Upload Document (pdf/txt/docx) */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Upload Document (PDF / TXT / DOCX)</h3>
+                            <form onSubmit={handleUpload} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Choose File *</label>
+                                    <input
+                                        type="file"
+                                        accept=".pdf,.txt,.docx,.md,.csv,.log"
+                                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                        className="mt-1 block w-full text-sm text-gray-700"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Document Type</label>
+                                        <select
+                                            value={documentType}
+                                            onChange={(e) => setDocumentType(e.target.value)}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                                        >
+                                            <option value="general">General</option>
+                                            <option value="notes">Notes</option>
+                                            <option value="requirements">Requirements</option>
+                                            <option value="faq">FAQ</option>
+                                            <option value="policy">Policy</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Source (optional)</label>
+                                        <input
+                                            type="text"
+                                            value={source}
+                                            onChange={(e) => setSource(e.target.value)}
+                                            placeholder="e.g., filename override"
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                                        />
+                                    </div>
+                                </div>
+                                {error && (
+                                    <div className="p-3 rounded bg-red-50 text-red-700 text-sm">
+                                        <i className="fas fa-triangle-exclamation mr-2"></i>
+                                        {error}
+                                    </div>
+                                )}
+                                <div className="flex justify-end">
+                                    <button
+                                        type="submit"
+                                        disabled={uploading}
+                                        className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                                    >
+                                        {uploading ? 'Uploading...' : 'Upload'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow">
+                        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                            <h3 className="text-lg font-medium text-gray-900">Documents ({docs.length})</h3>
+                            <span className="text-sm text-gray-500">Client: {client.company || client.name}</span>
+                        </div>
+                        <div className="p-6">
+                            {docs.length === 0 ? (
+                                <p className="text-gray-500 text-center py-8">No documents yet. Add or upload a document above to build the knowledge base.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {docs.map((doc) => (
+                                        <div key={doc.id} className="border border-gray-200 rounded-lg p-4">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="text-lg font-medium text-gray-900 truncate">{doc.title}</h4>
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        <span className="mr-3">Type: {doc.document_type}</span>
+                                                        {doc.source && <span className="mr-3">Source: {doc.source}</span>}
+                                                        <span>Added: {new Date(doc.created_at).toLocaleString()}</span>
+                                                    </div>
+                                                    <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap break-words">
+                                                        {doc.content.length > 600 ? doc.content.slice(0, 600) + '…' : doc.content}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function MapsIntegration({ client, onBack }) {
+            const { useState, useEffect } = React;
+            const [query, setQuery] = useState('');
+            const [location, setLocation] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const [places, setPlaces] = useState([]);
+
+            const loadPlaces = async () => {
+                try {
+                    const resp = await axios.get(`${API_BASE}/clients/${client.id}/maps-data`);
+                    setPlaces(resp.data.places || []);
+                } catch (e) {
+                    setError(e?.response?.data?.detail || e.message || 'Failed to load places');
+                }
+            };
+
+            useEffect(() => {
+                setError('');
+                loadPlaces();
+            }, [client?.id]);
+
+            const handleSearch = async (e) => {
+                e.preventDefault();
+                if (!query) {
+                    setError('Please enter a search query');
+                    return;
+                }
+                setLoading(true);
+                setError('');
+                try {
+                    await axios.post(`${API_BASE}/maps/search`, {
+                        client_id: client.id,
+                        query: query,
+                        location: location || null
+                    });
+                    await loadPlaces();
+                } catch (e) {
+                    setError(e?.response?.data?.detail || e.message || 'Search failed');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex items-center space-x-4">
+                        <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
+                            <i className="fas fa-arrow-left text-xl"></i>
+                        </button>
+                        <h2 className="text-3xl font-bold text-gray-900">Maps Integration - {client.name}</h2>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">Search Places</h3>
+                        <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <input
+                                type="text"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Search query (e.g., helicopter service, repair)"
+                                className="border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                                required
+                            />
+                            <input
+                                type="text"
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
+                                placeholder="Optional: lat,lng (e.g., 41.0082,28.9784)"
+                                className="border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                            />
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="px-6 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:opacity-50"
+                            >
+                                {loading ? 'Searching...' : 'Search & Save'}
+                            </button>
+                        </form>
+                        {error && (
+                            <div className="mt-4 p-3 rounded bg-red-50 text-red-700 text-sm">
+                                <i className="fas fa-triangle-exclamation mr-2"></i>
+                                {error}
+                            </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">Note: Results are saved to the client's profile automatically.</p>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow">
+                        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                            <h3 className="text-lg font-medium text-gray-900">Saved Places ({places.length})</h3>
+                            <span className="text-sm text-gray-500">Client: {client.company || client.name}</span>
+                        </div>
+                        <div className="p-6">
+                            {places.length === 0 ? (
+                                <p className="text-gray-500 text-center py-8">No places yet. Use search above to add places.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {places.map((p) => (
+                                        <div key={p.id} className="border border-gray-200 rounded-lg p-4">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="text-lg font-medium text-gray-900 truncate">{p.name}</h4>
+                                                    <p className="text-sm text-gray-600">{p.address}</p>
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        <span className="mr-3">Rating: {p.rating ?? 'N/A'}</span>
+                                                        <span className="mr-3">Reviews: {p.reviews_count ?? 0}</span>
+                                                        {p.location && <span>Lat/Lng: {p.location.lat}, {p.location.lng}</span>}
+                                                    </div>
+                                                    {p.website && (
+                                                        <p className="text-sm mt-2">
+                                                            <a href={p.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">Website</a>
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Chatbot({ client, onBack }) {
+            const { useState } = React;
+            const [messages, setMessages] = useState([]);
+            const [input, setInput] = useState('');
+            const [sending, setSending] = useState(false);
+            const [error, setError] = useState('');
+
+            const sendMessage = async (e) => {
+                e.preventDefault();
+                const text = input.trim();
+                if (!text) return;
+                setError('');
+                setSending(true);
+                // Append user message
+                setMessages((prev) => [...prev, { role: 'user', content: text, ts: Date.now() }]);
+                setInput('');
+                try {
+                    const resp = await axios.post(`${API_BASE}/chat/analyze`, {
+                        client_id: client.id,
+                        message: text
+                    });
+                    setMessages((prev) => [...prev, { role: 'assistant', content: resp.data.response, ts: Date.now(), meta: { analysis_type: resp.data.analysis_type }}]);
+                } catch (e) {
+                    setError(e?.response?.data?.detail || e.message || 'Failed to get response');
+                } finally {
+                    setSending(false);
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex items-center space-x-4">
+                        <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
+                            <i className="fas fa-arrow-left text-xl"></i>
+                        </button>
+                        <h2 className="text-3xl font-bold text-gray-900">AI Chatbot - {client.name}</h2>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <div className="text-sm text-gray-600 mb-3">
+                            The chatbot uses combined client data: basic info, scraped pages, RAG documents, and maps data.
+                        </div>
+                        <div className="h-80 overflow-y-auto border border-gray-200 rounded p-4 bg-gray-50">
+                            {messages.length === 0 ? (
+                                <div className="text-center text-gray-500 mt-16">
+                                    <i className="fas fa-robot text-4xl mb-3"></i>
+                                    <div>Ask about the client's business, website insights, documents, or locations.</div>
+                                </div>
+                            ) : (
+                                messages.map((m, idx) => (
+                                    <div key={idx} className={`chat-message ${m.role === 'user' ? 'user-message' : 'bot-message'} rounded-lg px-3 py-2 ${m.role === 'user' ? 'ml-auto' : 'mr-auto'}`}>
+                                        <div className="text-xs opacity-70 mb-1">{m.role === 'user' ? 'You' : 'Assistant'}{m.meta?.analysis_type ? ` • ${m.meta.analysis_type}` : ''}</div>
+                                        <div className="whitespace-pre-wrap text-sm">{m.content}</div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        {error && (
+                            <div className="mt-3 p-3 rounded bg-red-50 text-red-700 text-sm">
+                                <i className="fas fa-triangle-exclamation mr-2"></i>
+                                {error}
+                            </div>
+                        )}
+                        <form onSubmit={sendMessage} className="mt-4 flex gap-3">
+                            <input
+                                type="text"
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder="Ask a question about this client..."
+                                className="flex-1 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
+                            />
+                            <button type="submit" disabled={sending} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+                                {sending ? 'Sending...' : 'Send'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

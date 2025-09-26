@@ -1,0 +1,38 @@
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+
+# Web Scraping
+requests==2.31.0
+beautifulsoup4==4.12.2
+selenium==4.15.2
+
+# RAG and Vector Storage
+langchain==0.0.350
+langchain-community==0.0.10
+chromadb==0.4.18
+sentence-transformers==2.2.2
+tiktoken==0.5.1
+
+# Google AI and APIs
+google-generativeai==0.3.2
+google-api-python-client==2.108.0
+google-auth==2.23.4
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+
+# File Processing
+pypdf2==3.0.1
+python-docx==1.1.0
+
+# Utilities
+python-dotenv==1.0.0
+httpx==0.25.2
+aiofiles==23.2.1
+pydantic-settings==2.0.3

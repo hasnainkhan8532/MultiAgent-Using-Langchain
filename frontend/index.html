@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiToolAPI - Client Analysis Dashboard</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // API Configuration
+        const API_BASE = 'http://localhost:8000';
+
+        // Main App Component
+        function App() {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [clients, setClients] = useState([]);
+            const [scrapedData, setScrapedData] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [systemStatus, setSystemStatus] = useState(null);
+
+            // Load initial data
+            useEffect(() => {
+                loadSystemStatus();
+                loadClients();
+                loadScrapedData();
+            }, []);
+
+            const loadSystemStatus = async () => {
+                try {
+                    const response = await axios.get(`${API_BASE}/status`);
+                    setSystemStatus(response.data);
+                } catch (error) {
+                    console.error('Error loading system status:', error);
+                }
+            };
+
+            const loadClients = async () => {
+                try {
+                    const response = await axios.get(`${API_BASE}/clients/`);
+                    setClients(response.data.clients);
+                } catch (error) {
+                    console.error('Error loading clients:', error);
+                }
+            };
+
+            const loadScrapedData = async () => {
+                try {
+                    const response = await axios.get(`${API_BASE}/scraping/data`);
+                    setScrapedData(response.data.scraped_data);
+                } catch (error) {
+                    console.error('Error loading scraped data:', error);
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Header */}
+                    <header className="gradient-bg text-white shadow-lg">
+                        <div className="container mx-auto px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <i className="fas fa-tools text-3xl"></i>
+                                    <h1 className="text-2xl font-bold">MultiToolAPI</h1>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex items-center space-x-2">
+                                        <div className={`w-3 h-3 rounded-full ${systemStatus?.status === 'running' ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                                        <span className="text-sm">System {systemStatus?.status || 'Unknown'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Navigation */}
+                    <nav className="bg-white shadow-sm border-b">
+                        <div className="container mx-auto px-6">
+                            <div className="flex space-x-8">
+                                {[
+                                    { id: 'dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+                                    { id: 'clients', label: 'Clients', icon: 'fas fa-users' },
+                                    { id: 'scraping', label: 'Web Scraping', icon: 'fas fa-globe' },
+                                    { id: 'analysis', label: 'AI Analysis', icon: 'fas fa-brain' }
+                                ].map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`py-4 px-2 border-b-2 font-medium text-sm ${
+                                            activeTab === tab.id
+                                                ? 'border-blue-500 text-blue-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <i className={`${tab.icon} mr-2`}></i>
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </nav>
+
+                    {/* Main Content */}
+                    <main className="container mx-auto px-6 py-8">
+                        {activeTab === 'dashboard' && <Dashboard systemStatus={systemStatus} clients={clients} scrapedData={scrapedData} />}
+                        {activeTab === 'clients' && <Clients clients={clients} onClientsChange={loadClients} />}
+                        {activeTab === 'scraping' && <Scraping scrapedData={scrapedData} onDataChange={loadScrapedData} />}
+                        {activeTab === 'analysis' && <Analysis clients={clients} />}
+                    </main>
+                </div>
+            );
+        }
+
+        // Dashboard Component
+        function Dashboard({ systemStatus, clients, scrapedData }) {
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
+                    
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="bg-white rounded-lg shadow p-6 card-hover">
+                            <div className="flex items-center">
+                                <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                                    <i className="fas fa-users text-xl"></i>
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Total Clients</p>
+                                    <p className="text-2xl font-semibold text-gray-900">{clients.length}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow p-6 card-hover">
+                            <div className="flex items-center">
+                                <div className="p-3 rounded-full bg-green-100 text-green-600">
+                                    <i className="fas fa-globe text-xl"></i>
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Scraped Sites</p>
+                                    <p className="text-2xl font-semibold text-gray-900">{scrapedData.length}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow p-6 card-hover">
+                            <div className="flex items-center">
+                                <div className="p-3 rounded-full bg-purple-100 text-purple-600">
+                                    <i className="fas fa-brain text-xl"></i>
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">AI Status</p>
+                                    <p className="text-2xl font-semibold text-gray-900">
+                                        {systemStatus?.gemini_configured ? 'Active' : 'Inactive'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow p-6 card-hover">
+                            <div className="flex items-center">
+                                <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                                    <i className="fas fa-server text-xl"></i>
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">System Status</p>
+                                    <p className="text-2xl font-semibold text-gray-900">
+                                        {systemStatus?.status || 'Unknown'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Recent Activity */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white rounded-lg shadow">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <h3 className="text-lg font-medium text-gray-900">Recent Clients</h3>
+                            </div>
+                            <div className="p-6">
+                                {clients.length === 0 ? (
+                                    <p className="text-gray-500 text-center py-4">No clients yet</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {clients.slice(0, 5).map(client => (
+                                            <div key={client.id} className="flex items-center space-x-3">
+                                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                    <i className="fas fa-user text-blue-600"></i>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">{client.name}</p>
+                                                    <p className="text-sm text-gray-500">{client.company}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <h3 className="text-lg font-medium text-gray-900">Recent Scraping</h3>
+                            </div>
+                            <div className="p-6">
+                                {scrapedData.length === 0 ? (
+                                    <p className="text-gray-500 text-center py-4">No scraped data yet</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {scrapedData.slice(0, 5).map((data, index) => (
+                                            <div key={index} className="flex items-center space-x-3">
+                                                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                                    <i className="fas fa-globe text-green-600"></i>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">{data.title || 'Untitled'}</p>
+                                                    <p className="text-sm text-gray-500">{data.url}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Clients Component
+        function Clients({ clients, onClientsChange }) {
+            const [showForm, setShowForm] = useState(false);
+            const [formData, setFormData] = useState({
+                name: '',
+                email: '',
+                company: '',
+                website: '',
+                industry: '',
+                description: ''
+            });
+            const [loading, setLoading] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                try {
+                    await axios.post(`${API_BASE}/clients/`, formData);
+                    setFormData({
+                        name: '',
+                        email: '',
+                        company: '',
+                        website: '',
+                        industry: '',
+                        description: ''
+                    });
+                    setShowForm(false);
+                    onClientsChange();
+                } catch (error) {
+                    alert('Error creating client: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-3xl font-bold text-gray-900">Clients</h2>
+                        <button
+                            onClick={() => setShowForm(true)}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            <i className="fas fa-plus mr-2"></i>
+                            Add Client
+                        </button>
+                    </div>
+
+                    {/* Add Client Form */}
+                    {showForm && (
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Client</h3>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Name</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Email</label>
+                                        <input
+                                            type="email"
+                                            required
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Company</label>
+                                        <input
+                                            type="text"
+                                            value={formData.company}
+                                            onChange={(e) => setFormData({...formData, company: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Website</label>
+                                        <input
+                                            type="url"
+                                            value={formData.website}
+                                            onChange={(e) => setFormData({...formData, website: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Industry</label>
+                                        <input
+                                            type="text"
+                                            value={formData.industry}
+                                            onChange={(e) => setFormData({...formData, industry: e.target.value})}
+                                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Description</label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                        rows={3}
+                                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                                <div className="flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowForm(false)}
+                                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                        {loading ? 'Creating...' : 'Create Client'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
+                    {/* Clients List */}
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-medium text-gray-900">All Clients</h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Website</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Industry</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {clients.map(client => (
+                                        <tr key={client.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                {client.name}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {client.company || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {client.email}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {client.website ? (
+                                                    <a href={client.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                                                        {client.website}
+                                                    </a>
+                                                ) : '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {client.industry || '-'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Scraping Component
+        function Scraping({ scrapedData, onDataChange }) {
+            const [url, setUrl] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleScrape = async (e) => {
+                e.preventDefault();
+                if (!url) return;
+                
+                setLoading(true);
+                try {
+                    await axios.post(`${API_BASE}/scraping/scrape`, {
+                        url: url,
+                        strategy: 'requests'
+                    });
+                    setUrl('');
+                    onDataChange();
+                } catch (error) {
+                    alert('Error scraping website: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-3xl font-bold text-gray-900">Web Scraping</h2>
+                    
+                    {/* Scraping Form */}
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">Scrape Website</h3>
+                        <form onSubmit={handleScrape} className="flex space-x-4">
+                            <input
+                                type="url"
+                                value={url}
+                                onChange={(e) => setUrl(e.target.value)}
+                                placeholder="Enter website URL (e.g., https://example.com)"
+                                className="flex-1 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                required
+                            />
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                            >
+                                {loading ? (
+                                    <div className="flex items-center">
+                                        <div className="loading-spinner mr-2"></div>
+                                        Scraping...
+                                    </div>
+                                ) : (
+                                    <>
+                                        <i className="fas fa-spider mr-2"></i>
+                                        Scrape
+                                    </>
+                                )}
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Scraped Data */}
+                    <div className="bg-white rounded-lg shadow">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-medium text-gray-900">Scraped Data ({scrapedData.length})</h3>
+                        </div>
+                        <div className="p-6">
+                            {scrapedData.length === 0 ? (
+                                <p className="text-gray-500 text-center py-8">No scraped data yet. Start by scraping a website above.</p>
+                            ) : (
+                                <div className="space-y-6">
+                                    {scrapedData.map((data, index) => (
+                                        <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1">
+                                                    <h4 className="text-lg font-medium text-gray-900 mb-2">
+                                                        {data.title || 'Untitled Page'}
+                                                    </h4>
+                                                    <p className="text-sm text-gray-600 mb-3">
+                                                        <a href={data.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                                                            {data.url}
+                                                        </a>
+                                                    </p>
+                                                    {data.meta_description && (
+                                                        <p className="text-sm text-gray-700 mb-3">{data.meta_description}</p>
+                                                    )}
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                                        <div>
+                                                            <span className="font-medium text-gray-600">Headings:</span>
+                                                            <span className="ml-2 text-gray-900">{data.headings?.length || 0}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium text-gray-600">Links:</span>
+                                                            <span className="ml-2 text-gray-900">{data.links?.length || 0}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium text-gray-600">Images:</span>
+                                                            <span className="ml-2 text-gray-900">{data.images?.length || 0}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Analysis Component
+        function Analysis({ clients }) {
+            const [selectedClient, setSelectedClient] = useState('');
+            const [requirements, setRequirements] = useState('');
+            const [goals, setGoals] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [analysisResult, setAnalysisResult] = useState(null);
+
+            const handleAnalysis = async (e) => {
+                e.preventDefault();
+                if (!selectedClient || !requirements || !goals) return;
+
+                setLoading(true);
+                try {
+                    const client = clients.find(c => c.id === parseInt(selectedClient));
+                    const goalsList = goals.split(',').map(g => g.trim()).filter(g => g);
+                    
+                    const response = await axios.post(`${API_BASE}/analysis/analyze`, {
+                        client_data: client,
+                        requirements: requirements,
+                        goals: goalsList
+                    });
+                    
+                    setAnalysisResult(response.data);
+                } catch (error) {
+                    alert('Error running analysis: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-3xl font-bold text-gray-900">AI Analysis</h2>
+                    
+                    {/* Analysis Form */}
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">Run Client Analysis</h3>
+                        <form onSubmit={handleAnalysis} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Select Client</label>
+                                <select
+                                    value={selectedClient}
+                                    onChange={(e) => setSelectedClient(e.target.value)}
+                                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                >
+                                    <option value="">Choose a client...</option>
+                                    {clients.map(client => (
+                                        <option key={client.id} value={client.id}>
+                                            {client.name} - {client.company}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Requirements</label>
+                                <textarea
+                                    value={requirements}
+                                    onChange={(e) => setRequirements(e.target.value)}
+                                    rows={3}
+                                    placeholder="Describe what the client wants to achieve..."
+                                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Goals (comma-separated)</label>
+                                <input
+                                    type="text"
+                                    value={goals}
+                                    onChange={(e) => setGoals(e.target.value)}
+                                    placeholder="e.g., Increase traffic, Improve SEO, Generate leads"
+                                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+                            
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+                            >
+                                {loading ? (
+                                    <div className="flex items-center justify-center">
+                                        <div className="loading-spinner mr-2"></div>
+                                        Analyzing...
+                                    </div>
+                                ) : (
+                                    <>
+                                        <i className="fas fa-brain mr-2"></i>
+                                        Run Analysis
+                                    </>
+                                )}
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Analysis Results */}
+                    {analysisResult && (
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Analysis Results</h3>
+                            <div className="prose max-w-none">
+                                <pre className="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
+                                    {analysisResult.analysis}
+                                </pre>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
